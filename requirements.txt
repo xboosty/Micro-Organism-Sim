@@ -1,0 +1,7 @@
+# Micro-Organism-Sim dependencies
+pygame==2.6.1
+numpy==2.0.2
+
+# Optional tools for development/logging
+matplotlib>=3.8.0  # For potential visualization upgrades
+pandas>=2.2.0       # For analyzing simulation logs

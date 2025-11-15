@@ -1,19 +1,56 @@
+from __future__ import annotations
+
 import random
+from typing import Tuple
+
 from config import (
-    FOV_MIN, FOV_MAX, RANGE_MIN, RANGE_MAX,
-    THRUST_MIN, THRUST_MAX, META_MIN, META_MAX,
-    MUTATION_RATE, MUTATION_SCALE
+    MUTATION_RATE,
+    MUTATION_SCALE,
+    FOV_MIN,
+    FOV_MAX,
+    RANGE_MIN,
+    RANGE_MAX,
+    THRUST_MIN,
+    THRUST_MAX,
+    META_MIN,
+    META_MAX,
 )
 
-def clamp(v, lo, hi):
-    return max(lo, min(hi, v))
 
-def mutate_val(val, lo, hi, rng, scale=MUTATION_SCALE):
-    if rng.random() < MUTATION_RATE:
-        val += rng.gauss(0.0, scale * (hi - lo) * 0.05)
-    return clamp(val, lo, hi)
+def mutate_val(
+    base: float,
+    vmin: float,
+    vmax: float,
+    rng: random.Random,
+    rate: float = MUTATION_RATE,
+    scale: float = MUTATION_SCALE,
+) -> float:
+    """
+    Mutate a scalar trait value.
 
-def inherit_traits(parent, rng):
+    With probability `rate`, add Gaussian noise with std `scale`.
+    Result is clamped to [vmin, vmax].
+    """
+    val = base
+    if rng.random() < rate:
+        val += rng.gauss(0.0, scale)
+    if vmin is not None:
+        val = max(vmin, val)
+    if vmax is not None:
+        val = min(vmax, val)
+    return val
+
+
+def inherit_traits(parent, rng: random.Random) -> Tuple[float, float, float, float]:
+    """
+    Asexual trait inheritance.
+
+    Child traits are copied from parent and then mutated & clamped
+    to the configured bounds.
+
+    Returns:
+        (fov_deg, range_len, thrust_eff, metabolism_eff)
+    """
     fov = mutate_val(parent.trait_fov_deg, FOV_MIN, FOV_MAX, rng)
     rng_len = mutate_val(parent.trait_range, RANGE_MIN, RANGE_MAX, rng)
     thrust_eff = mutate_val(parent.trait_thrust_eff, THRUST_MIN, THRUST_MAX, rng)

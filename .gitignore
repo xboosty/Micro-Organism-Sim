@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PyTorch compiled stuff
+*.pt
+*.pth
+
+# Pygame window cache temp files
+*.tmp

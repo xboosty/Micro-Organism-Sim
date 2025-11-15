@@ -1,44 +1,84 @@
 import math
+from typing import List, Tuple
+
 from config import WORLD_WIDTH, WORLD_HEIGHT
 
-def torus_delta(ax, ay, bx, by):
-    dx = bx - ax; dy = by - ay
-    if dx >  WORLD_WIDTH/2:  dx -= WORLD_WIDTH
-    if dx < -WORLD_WIDTH/2:  dx += WORLD_WIDTH
-    if dy >  WORLD_HEIGHT/2: dy -= WORLD_HEIGHT
-    if dy < -WORLD_HEIGHT/2: dy += WORLD_HEIGHT
+
+def torus_delta(ax: float, ay: float, bx: float, by: float) -> Tuple[float, float]:
+    """
+    Smallest vector from (ax, ay) to (bx, by) on a torus world.
+    """
+    dx = bx - ax
+    dy = by - ay
+
+    half_w = WORLD_WIDTH / 2.0
+    half_h = WORLD_HEIGHT / 2.0
+
+    if dx > half_w:
+        dx -= WORLD_WIDTH
+    elif dx < -half_w:
+        dx += WORLD_WIDTH
+
+    if dy > half_h:
+        dy -= WORLD_HEIGHT
+    elif dy < -half_h:
+        dy += WORLD_HEIGHT
+
     return dx, dy
 
-def angle_diff(a, b):
-    d = (a - b + math.pi) % (2*math.pi) - math.pi
+
+def angle_diff(a: float, b: float) -> float:
+    """
+    Smallest signed difference between two angles a and b (radians) in [-pi, pi].
+    """
+    d = (a - b + math.pi) % (2.0 * math.pi) - math.pi
     return d
 
-def raycast_cone(agent, foods, fov_rad, rng_len, rays):
-    """Return (left_signal, right_signal, nearest_food_obj or None) using multi-ray sampling."""
-    if rays < 3: rays = 3
-    half = fov_rad / 2.0
-    step = (2*half) / (rays - 1)
-    left = right = 0.0
-    nearest = None; nearest_dist = 1e9
 
-    for i in range(rays):
-        rel = -half + i*step  # left -> right
-        ray_angle = (agent.angle + rel)
-        for f in foods:
-            dx, dy = torus_delta(agent.x, agent.y, f.x, f.y)
-            dist = math.hypot(dx, dy)
-            if dist > rng_len:
-                continue
-            ang_to = math.atan2(dy, dx)
-            ang_err = abs(angle_diff(ang_to, ray_angle))
-            if ang_err > (step * 0.75):
-                continue
-            contrib = max(0.0, 1.0 - dist / rng_len)
-            if rel < 0:
-                left = max(left, contrib)
-            else:
-                right = max(right, contrib)
-            if dist < nearest_dist:
-                nearest_dist, nearest = dist, f
+def raycast_cone(
+    x: float,
+    y: float,
+    angle: float,
+    fov_rad: float,
+    rng_len: float,
+    rays: int,
+    foods,
+) -> List[Tuple[float, float]]:
+    """
+    Very lightweight cone "raycast" over food particles.
 
-    return left, right, nearest
+    For now we don't march true rays through tiles; instead we:
+
+    - Treat the cone as a continuous FOV centered on `angle` with width fov_rad.
+    - For each food item:
+        * Compute wrapped dx, dy using torus geometry.
+        * Compute distance and bearing relative to the organism.
+        * If within range AND within FOV, we record it as a "hit".
+
+    Returns:
+        List of (relative_angle, distance) tuples for all hits,
+        where relative_angle = angle_to_food - angle, in radians.
+        Negative values = to the left, positive = to the right.
+
+    The `rays` parameter is currently unused but kept for API compatibility
+    and future extension to true ray-marching against terrain.
+    """
+    hits: List[Tuple[float, float]] = []
+    half_fov = fov_rad / 2.0
+
+    if not foods:
+        return hits
+
+    for f in foods:
+        dx, dy = torus_delta(x, y, f.x, f.y)
+        dist = math.hypot(dx, dy)
+        if dist <= 0.0 or dist > rng_len:
+            continue
+
+        ang_to = math.atan2(dy, dx)
+        rel = angle_diff(ang_to, angle)
+
+        if abs(rel) <= half_fov:
+            hits.append((rel, dist))
+
+    return hits
